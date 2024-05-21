@@ -2,91 +2,125 @@ from . import utils
 from time import sleep
 import random
 import json
-
+import pandas as pd
+import datetime
+import csv
 
 def get_user_information(users, driver=None, headless=True):
     """ get user information if the "from_account" argument is specified """
 
     driver = utils.init_driver(headless=headless)
-
-    users_info = {}
-
+    date_str = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    filename = f'outputs/{date_str}_user.csv'
+    header = ['additionalName', 'givenName', 'image', 'background_image', 'following', 'followers', 'tweet_num', 'type', 'join_date', 'description', 'website']
+    with open(filename, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        
+               
     for i, user in enumerate(users):
 
         log_user_page(user, driver)
 
-        if user is not None:
-
-            try:
-                following = driver.find_element_by_xpath(
-                    '//a[contains(@href,"/following")]/span[1]/span[1]').text
-                followers = driver.find_element_by_xpath(
-                    '//a[contains(@href,"/followers")]/span[1]/span[1]').text
-            except Exception as e:
-                # print(e)
-                return
-
-            try:
-                element = driver.find_element_by_xpath('//div[contains(@data-testid,"UserProfileHeader_Items")]//a[1]')
-                website = element.get_attribute("href")
-            except Exception as e:
-                # print(e)
-                website = ""
-
-            try:
-                desc = driver.find_element_by_xpath('//div[contains(@data-testid,"UserDescription")]').text
-            except Exception as e:
-                # print(e)
-                desc = ""
-            a = 0
-            try:
-                join_date = driver.find_element_by_xpath(
-                    '//div[contains(@data-testid,"UserProfileHeader_Items")]/span[3]').text
-                birthday = driver.find_element_by_xpath(
-                    '//div[contains(@data-testid,"UserProfileHeader_Items")]/span[2]').text
-                location = driver.find_element_by_xpath(
-                    '//div[contains(@data-testid,"UserProfileHeader_Items")]/span[1]').text
-            except Exception as e:
-                # print(e)
-                try:
-                    join_date = driver.find_element_by_xpath(
-                        '//div[contains(@data-testid,"UserProfileHeader_Items")]/span[2]').text
-                    span1 = driver.find_element_by_xpath(
-                        '//div[contains(@data-testid,"UserProfileHeader_Items")]/span[1]').text
-                    if hasNumbers(span1):
-                        birthday = span1
-                        location = ""
-                    else:
-                        location = span1
-                        birthday = ""
-                except Exception as e:
-                    # print(e)
-                    try:
-                        join_date = driver.find_element_by_xpath(
-                            '//div[contains(@data-testid,"UserProfileHeader_Items")]/span[1]').text
-                        birthday = ""
-                        location = ""
-                    except Exception as e:
-                        # print(e)
-                        join_date = ""
-                        birthday = ""
-                        location = ""
-            print("--------------- " + user + " information : ---------------")
-            print("Following : ", following)
-            print("Followers : ", followers)
-            print("Location : ", location)
-            print("Join date : ", join_date)
-            print("Birth date : ", birthday)
-            print("Description : ", desc)
-            print("Website : ", website)
-            users_info[user] = [following, followers, join_date, birthday, location, website, desc]
-
-            if i == len(users) - 1:
-                driver.close()
-                return users_info
-        else:
-            print("You must specify the user")
+        if user is None:
+            print('You must specify a user.')
             continue
+
+        try:
+            # 在head中匹配含有data-testid="UserProfileSchema-test"的script标签 /html/head/script[4]
+            script_element = driver.find_element_by_xpath('//head//script[@data-testid="UserProfileSchema-test"]')
+            UserProfileSchema_test = script_element.get_attribute("text")
+            UserProfileSchema = json.loads(UserProfileSchema_test)
+        except Exception as e:
+            UserProfileSchema = None
+        try:
+            for i in UserProfileSchema['author']['interactionStatistic']:
+                if i['name'] == 'Follows':
+                    followers = i['userInteractionCount']
+                elif i['name'] == 'Friends':
+                    following = i['userInteractionCount']
+                elif i['name'] == 'Tweets':
+                    tweet_num = i['userInteractionCount']
+        except Exception as e:
+            followers = 0
+            following = 0
+            tweet_num = 0
+
+        try:
+            join_date = UserProfileSchema['dateCreated']
+        except Exception as e:
+            join_date = ''
+
+        try:
+            additionalName = UserProfileSchema['author']['additionalName']
+        except Exception as e:
+            additionalName = ''
+
+        try:
+            givenName = UserProfileSchema['author']['givenName']
+        except Exception as e:
+            givenName = ''
+
+        try:
+            description = UserProfileSchema['author']['description']
+        except Exception as e:
+            description = ''
+
+        try:
+            website = UserProfileSchema['relatedLink']
+        except Exception as e:
+            website = ''
+
+        try:
+            image = UserProfileSchema['author']['image']['contentUrl']               
+        except Exception as e:
+            image = ''
+        
+        try:
+            type = driver.find_element_by_xpath(
+                '//div[contains(@data-testid,"UserProfileHeader_Items")]/span[1]').text
+        except Exception as e:
+            type = ''
+        
+        try:
+            background_image_path = driver.find_elements_by_xpath('//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/div/div/div/a/div/div[2]/div/img')
+            if background_image_path:
+                background_image = background_image_path[0].get_attribute('src')
+            else:
+                print("No elements found")
+        except Exception as e:
+            background_image = ''
+
+        print("--------------- " + user + " information : ---------------")
+        print("additionalName : ", additionalName)
+        print("givenName : ", givenName)
+        print("image : ", image)
+        print("background_image : ", background_image)
+        print("Following : ", following)
+        print("Followers : ", followers)
+        print("Tweet num : ", tweet_num)
+        print("type : ", type)
+        print("Join date : ", join_date)
+        print("Description : ", description)
+        print("Website : ", str(website))
+        data = {
+            'additionalName': [additionalName],
+            'givenName': [givenName],
+            'image': [image],
+            'background_image': [background_image],
+            'following': [following],
+            'followers': [followers],
+            'tweet_num': [tweet_num],
+            'type': [type],
+            'join_date': [join_date],
+            'description': [description],
+            'website': [str(website)],
+        }
+        df = pd.DataFrame(data)
+        df.to_csv(filename, mode='a', index=False, header=False)
+
+        if i == len(users) - 1:
+            driver.close()
 
 
 def log_user_page(user, driver, headless=True):

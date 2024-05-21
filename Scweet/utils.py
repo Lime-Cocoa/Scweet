@@ -3,7 +3,7 @@ import os
 import re
 from time import sleep
 import random
-import chromedriver_autoinstaller
+import chromedriver_autoinstaller_fix
 import geckodriver_autoinstaller
 from selenium.common.exceptions import NoSuchElementException
 from selenium import webdriver
@@ -58,17 +58,26 @@ def get_data(card, save_images=False, save_dir=None):
     # text = comment + embedded
 
     try:
-        reply_cnt = card.find_element(by=By.XPATH, value='.//div[@data-testid="reply"]').text
+        reply_button = card.find_element(by=By.XPATH, value='.//button[@data-testid="reply"]')
+        reply_arialabel = reply_button.get_attribute('aria-label')
+        reply_cnt = re.search(r'\d+', reply_arialabel).group()
+        print(reply_cnt)
     except:
         reply_cnt = 0
 
     try:
-        retweet_cnt = card.find_element(by=By.XPATH, value='.//div[@data-testid="retweet"]').text
+        retweet_button = card.find_element(by=By.XPATH, value='.//button[@data-testid="retweet"]')
+        retweet_arialabel = retweet_button.get_attribute('aria-label')
+        retweet_cnt = re.search(r'\d+', retweet_arialabel).group()
+        print(retweet_cnt)
     except:
         retweet_cnt = 0
 
     try:
-        like_cnt = card.find_element(by=By.XPATH, value='.//div[@data-testid="like"]').text
+        like_button = card.find_element(by=By.XPATH, value='.//button[@data-testid="like"]')
+        like_aria_label = like_button.get_attribute('aria-label')
+        like_cnt = re.search(r'\d+', like_aria_label).group()
+        print(like_cnt)
     except:
         like_cnt = 0
 
@@ -109,7 +118,9 @@ def get_data(card, save_images=False, save_dir=None):
 
     # tweet url
     try:
-        element = card.find_element(by=By.XPATH, value='.//a[contains(@href, "/status/")]')
+        element = card.find_element(by=By.XPATH, value='.//a[contains(@href, "/status/")]') # /html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[3]/div/div/article
+                                                                                                                                 # /html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[8]/div/div/article/div/div/div[2]/div[2]/div[1]/div/div[1]/div/div/div[2]/div/div[3]/a
+                                                                                                                                 # /html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[3]/div/div/article/div/div/div[2]/div[2]/div[4]/div/div/div[4]/a div/div/div[2]/div[2]/div[1]/div/div[1]/div/div/div[2]/div/div[3]/a
         tweet_url = element.get_attribute('href')
     except:
         return
@@ -129,7 +140,7 @@ def init_driver(headless=True, proxy=None, show_images=False, option=None, firef
         driver_path = geckodriver_autoinstaller.install()
     else:
         options = ChromeOptions()
-        driver_path = chromedriver_autoinstaller.install()
+        driver_path = chromedriver_autoinstaller_fix.install()
 
     if headless is True:
         print("Scraping on headless mode.")
@@ -223,6 +234,7 @@ def log_search_page(driver, since, until_local, lang, display_type, words, to_ac
 
     path = 'https://twitter.com/search?q=' + words + from_account + to_account + mention_account + hash_tags + until_local + since + lang + filter_replies + geocode + minreplies + minlikes + minretweets + '&src=typed_query' + display_type + proximity
     driver.get(path)
+    sleep(10)
     return path
 
 
@@ -278,14 +290,15 @@ def keep_scroling(driver, data, writer, tweet_ids, scrolling, tweet_parsed, limi
             os.mkdir(save_images_dir)
 
     while scrolling and tweet_parsed < limit:
-        sleep(random.uniform(0.5, 1.5))
+        sleep(random.uniform(5, 10))
         # get the card of tweets
-        page_cards = driver.find_elements(by=By.XPATH, value='//article[@data-testid="tweet"]')  # changed div by article
+        page_cards = driver.find_elements(by=By.XPATH, value='//article[@data-testid="tweet"]')  # changed div by article  /html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[8]/div/div/article
+                                                                                                                          #/html/body/div[1]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/section/div/div/div[8]/div/div/article/div/div/div[2]/div[2]/div[1]/div/div[1]/div/div/div[2]/div/div[3]/a
         for card in page_cards:
             tweet = get_data(card, save_images, save_images_dir)
             if tweet:
                 # check if the tweet is unique
-                tweet_id = ''.join(tweet[:-2])
+                tweet_id = ''.join(str(e) for e in tweet[:-2])
                 if tweet_id not in tweet_ids:
                     tweet_ids.add(tweet_id)
                     data.append(tweet)
@@ -300,7 +313,7 @@ def keep_scroling(driver, data, writer, tweet_ids, scrolling, tweet_parsed, limi
             # check scroll position
             scroll += 1
             print("scroll ", scroll)
-            sleep(random.uniform(0.5, 1.5))
+            sleep(random.uniform(5, 10))
             driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')
             curr_position = driver.execute_script("return window.pageYOffset;")
             if last_position == curr_position:
@@ -310,7 +323,7 @@ def keep_scroling(driver, data, writer, tweet_ids, scrolling, tweet_parsed, limi
                     scrolling = False
                     break
                 else:
-                    sleep(random.uniform(0.5, 1.5))  # attempt another scroll
+                    sleep(random.uniform(5, 10))  # attempt another scroll
             else:
                 last_position = curr_position
                 break
@@ -321,7 +334,7 @@ def get_users_follow(users, headless, env, follow=None, verbose=1, wait=2, limit
     """ get the following or followers of a list of users """
 
     # initiate the driver
-    driver = init_driver(headless=headless, env=env, firefox=True)
+    driver = init_driver(headless=headless, env=env, firefox=False)
     sleep(wait)
     # log in (the .env file should contain the username and password)
     # driver.get('https://www.twitter.com/login')
@@ -361,7 +374,7 @@ def get_users_follow(users, headless, env, follow=None, verbose=1, wait=2, limit
             # this is the primaryColumn attribute that contains both followings and followers
             primaryColumn = driver.find_element(by=By.XPATH, value='//div[contains(@data-testid,"primaryColumn")]')
             # extract only the Usercell
-            page_cards = primaryColumn.find_elements(by=By.XPATH, value='//div[contains(@data-testid,"UserCell")]')
+            page_cards = primaryColumn.find_elements(by=By.XPATH, value='//button[contains(@data-testid,"UserCell")]')
             for card in page_cards:
                 # get the following or followers element
                 element = card.find_element(by=By.XPATH, value='.//div[1]/div[1]/div[1]//a[1]')

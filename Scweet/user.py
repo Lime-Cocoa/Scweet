@@ -12,7 +12,7 @@ def get_user_information(users, driver=None, headless=True):
     driver = utils.init_driver(headless=headless)
     date_str = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     filename = f'outputs/{date_str}_user.csv'
-    header = ['additionalName', 'givenName', 'image', 'background_image', 'following', 'followers', 'tweet_num', 'type', 'join_date', 'description', 'website']
+    header = ['additionalName', 'givenName', 'image', 'background_image', 'following', 'followers', 'tweet_num', 'join_date', 'description', 'website']
     with open(filename, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(header)
@@ -74,13 +74,7 @@ def get_user_information(users, driver=None, headless=True):
         try:
             image = UserProfileSchema['author']['image']['contentUrl']               
         except Exception as e:
-            image = ''
-        
-        try:
-            type = driver.find_element_by_xpath(
-                '//div[contains(@data-testid,"UserProfileHeader_Items")]/span[1]').text
-        except Exception as e:
-            type = ''
+            image = ''        
         
         try:
             background_image_path = driver.find_elements_by_xpath('//*[@id="react-root"]/div/div/div[2]/main/div/div/div/div[1]/div/div[3]/div/div/div/a/div/div[2]/div/img')
@@ -99,7 +93,6 @@ def get_user_information(users, driver=None, headless=True):
         print("Following : ", following)
         print("Followers : ", followers)
         print("Tweet num : ", tweet_num)
-        print("type : ", type)
         print("Join date : ", join_date)
         print("Description : ", description)
         print("Website : ", str(website))
@@ -111,7 +104,6 @@ def get_user_information(users, driver=None, headless=True):
             'following': [following],
             'followers': [followers],
             'tweet_num': [tweet_num],
-            'type': [type],
             'join_date': [join_date],
             'description': [description],
             'website': [str(website)],
